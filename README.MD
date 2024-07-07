@@ -6,6 +6,7 @@ fm-radio is a fork of the radio module, however this is made with the focus of F
 - TA
 - ECC
 - LIC
+- LPS
 - CT (may not work as expected)
 
 **Note that i don't redecommend using this while also using the original radio module**
