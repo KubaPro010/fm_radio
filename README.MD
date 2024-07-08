@@ -11,7 +11,7 @@ fm-radio is a fork of the radio module, however this is made with the focus of F
 
 **Note that i don't redecommend using this while also using the original radio module**
 # How to install?
-I may have added a windows dll ready to download, compiled on a Intel 64-bit AVX(2) enabled processor (i5-9400F)
+I may have added a windows dll ready to download, compiled on a Intel 64-bit AVX(2) enabled processor (i5-9400F) (see build.zip)
 
 That DLL doesn't work? Well, you have to compile it yourself, first you need to be able to compile [SDR++](https://github.com/AlexandreRouma/SDRPlusPlus) in the first place (tip: you can disable all of the modules in the CMakeLists.txt file to speed it up)
 
