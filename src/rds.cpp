@@ -234,7 +234,7 @@ namespace rds {
         year += K;
         month -= 1 + K * 12;
         year += 1900;
-        return year;
+        return year % 9999;
     }
 
     unsigned int Decoder::getMJDMonth(double mjd) {
@@ -243,14 +243,14 @@ namespace rds {
         unsigned int day   = mjd - 14956 - int(year * 365.25) - int(month * 30.6001);
         bool K = ((month == 14) || (month == 15)) ? 1 : 0;
         month -= 1 + K * 12;
-        return month;
+        return month % 13;
     }
 
     unsigned int Decoder::getMJDDay(double mjd) {
         unsigned int year  = int((mjd - 15078.2) / 365.25);
         unsigned int month = int((mjd - 14956.1 - int(year * 365.25)) / 30.6001);
         unsigned int day   = mjd - 14956 - int(year * 365.25) - int(month * 30.6001);
-        return day;
+        return day % 32;
     }
 
     void Decoder::decodeBlockA() {
