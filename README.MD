@@ -7,7 +7,7 @@ fm-radio is a fork of the radio module, however this is made with the focus of F
 - ECC
 - LIC
 - LPS
-- CT (may not work as expected)
+- CT
 
 **Note that i don't redecommend using this while also using the original radio module**
 # How to install?

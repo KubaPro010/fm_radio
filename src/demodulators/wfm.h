@@ -309,10 +309,10 @@ namespace demod {
                     ImGui::TextUnformatted("Time");
                     ImGui::TableSetColumnIndex(1);
                     ImGui::Text("%02d:%02d (%02d:%02d)",
-                        (rdsDecode.getClockHour() + ((rdsDecode.getClockOffsetSense() ? -1 : 1) * (rdsDecode.getClockOffset() / 2))) % 23,
-                        (rdsDecode.getClockMinute() + ((rdsDecode.getClockOffsetSense() ? -1 : 1) * (rdsDecode.getClockOffset() % 2) * 30)) % 59,
-                        rdsDecode.getClockHour() % 23,
-                        rdsDecode.getClockMinute() % 59
+                        (rdsDecode.getClockHour() + ((rdsDecode.getClockOffsetSense() ? -1 : 1) * (rdsDecode.getClockOffset() / 2))) % 24,
+                        (rdsDecode.getClockMinute() + ((rdsDecode.getClockOffsetSense() ? -1 : 1) * (rdsDecode.getClockOffset() % 2) * 30)) % 60,
+                        rdsDecode.getClockHour() % 24,
+                        rdsDecode.getClockMinute() % 60
                     );
 
                     ImGui::TableNextRow();
@@ -440,7 +440,7 @@ namespace demod {
             args.window->DrawList->AddRectFilled(min, max, IM_COL32(0, 0, 0, 255), 0.4f);
 
             // Draw text
-            args.window->DrawList->AddText(tmin, IM_COL32(255, 255, 255, 255), buf);
+            args.window->DrawList->AddText(NULL, args.window->DrawList->_Data->FontSize * 1.15, tmin, IM_COL32(255, 255, 255, 255), buf);
         }
 
         dsp::demod::BroadcastFM demod;
