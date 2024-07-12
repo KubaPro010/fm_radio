@@ -229,10 +229,8 @@ namespace rds {
     unsigned int Decoder::getMJDYear(double mjd) {
         unsigned int year  = int((mjd - 15078.2) / 365.25);
         unsigned int month = int((mjd - 14956.1 - int(year * 365.25)) / 30.6001);
-        unsigned int day   = mjd - 14956 - int(year * 365.25) - int(month * 30.6001);
         bool K = ((month == 14) || (month == 15)) ? 1 : 0;
         year += K;
-        month -= 1 + K * 12;
         year += 1900;
         return year % 9999;
     }
@@ -240,7 +238,6 @@ namespace rds {
     unsigned int Decoder::getMJDMonth(double mjd) {
         unsigned int year  = int((mjd - 15078.2) / 365.25);
         unsigned int month = int((mjd - 14956.1 - int(year * 365.25)) / 30.6001);
-        unsigned int day   = mjd - 14956 - int(year * 365.25) - int(month * 30.6001);
         bool K = ((month == 14) || (month == 15)) ? 1 : 0;
         month -= 1 + K * 12;
         return month % 13;
@@ -289,6 +286,7 @@ namespace rds {
     }
 
     // void decodeAlternativeFrequencies() {
+    //     // TODO: Make AF
     //     if(alternativeFrequency) {
     //         uint8_t af0 = (alternativeFrequency >> 8) & 0xff;
     //         uint8_t af1 = alternativeFrequency & 0xff;
@@ -435,7 +433,7 @@ namespace rds {
         if (groupVer == GROUP_VER_A && blockAvail[BLOCK_TYPE_C] && blockAvail[BLOCK_TYPE_D]) {
             /* Decode Long PS */
 
-            /* LPS doesnt have a AB flag */
+            /* LPS doesnt have a AB flag (does it?) */
             uint8_t segment = (blocks[BLOCK_TYPE_B] >> 10) & 0b111;
             uint8_t lpsSegment = segment * 4;
             longPS[lpsSegment + 0] = (blocks[BLOCK_TYPE_C] >> 18) & 0xFF;
@@ -455,9 +453,11 @@ namespace rds {
 
         if (groupVer == GROUP_VER_A) {
             if(blockAvail[BLOCK_TYPE_C]) {
+                // MJD is in the last bits of block b and whole block c
                 clock_mjd = (((blocks[BLOCK_TYPE_B] >> 10) & 0x03) << 15) | (((blocks[BLOCK_TYPE_C] >> 10) >> 1) & 0x7fff);
             }
             if(blockAvail[BLOCK_TYPE_C] && blockAvail[BLOCK_TYPE_D]) {
+                // Hour is somewhat in block C but rest are in D
                 clock_hour = ((blocks[BLOCK_TYPE_C] >> 10) & 1);
                 clock_hour <<= 4;
                 clock_hour |= blocks[BLOCK_TYPE_D] >> 22;
