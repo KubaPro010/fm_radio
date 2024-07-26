@@ -326,16 +326,6 @@ private:
         audioSampleRate = sr;
         if (!selectedDemod) { return; }
         selectedDemod->AFSampRateChanged(audioSampleRate);
-        if (vfo) {
-            // If postproc is disabled, IF SR = AF SR
-            minBandwidth = selectedDemod->getMinBandwidth();
-            maxBandwidth = selectedDemod->getMaxBandwidth();
-            bandwidth = selectedDemod->getIFSampleRate();
-            vfo->setBandwidthLimits(minBandwidth, maxBandwidth, false);
-            vfo->setSampleRate(selectedDemod->getIFSampleRate(), bandwidth);
-            return;
-        }
-
         afChain.stop();
 
         // Configure resampler
@@ -345,6 +335,15 @@ private:
         deemp.setSamplerate(audioSampleRate);
 
         afChain.start();
+        if (vfo) {
+            // If postproc is disabled, IF SR = AF SR
+            minBandwidth = selectedDemod->getMinBandwidth();
+            maxBandwidth = selectedDemod->getMaxBandwidth();
+            bandwidth = selectedDemod->getIFSampleRate();
+            vfo->setBandwidthLimits(minBandwidth, maxBandwidth, false);
+            vfo->setSampleRate(selectedDemod->getIFSampleRate(), bandwidth);
+            return;
+        }
     }
 
     void setDeemphasisMode(DeemphasisMode mode) {
