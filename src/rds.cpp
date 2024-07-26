@@ -408,7 +408,7 @@ namespace rds {
         std::lock_guard<std::mutex> lck(group1Mtx);
 
         if (groupVer == GROUP_VER_A && blockAvail[BLOCK_TYPE_C]) {
-            /* Decode the Slow Labeling Codes*/
+            /* Decode the Slow Labeling Codes, these are only in group 1A */
             uint8_t variant_code = (blocks[BLOCK_TYPE_C] >> 22) & 0b111;
 
             if(variant_code == 0) {
@@ -451,23 +451,21 @@ namespace rds {
         std::lock_guard<std::mutex> lck(group4AMtx);
         ctRecv = true;
 
-        if (groupVer == GROUP_VER_A) {
-            if(blockAvail[BLOCK_TYPE_C]) {
-                // MJD is in the last bits of block b and whole block c
-                clock_mjd = (((blocks[BLOCK_TYPE_B] >> 10) & 0x03) << 15) | (((blocks[BLOCK_TYPE_C] >> 10) >> 1) & 0x7fff);
-            }
-            if(blockAvail[BLOCK_TYPE_C] && blockAvail[BLOCK_TYPE_D]) {
-                // Hour is somewhat in block C but rest are in D
-                clock_hour = ((blocks[BLOCK_TYPE_C] >> 10) & 1);
-                clock_hour <<= 4;
-                clock_hour |= blocks[BLOCK_TYPE_D] >> 22;
+        if(blockAvail[BLOCK_TYPE_C]) {
+            // MJD is in the last bits of block b and whole block c
+            clock_mjd = (((blocks[BLOCK_TYPE_B] >> 10) & 0x03) << 15) | (((blocks[BLOCK_TYPE_C] >> 10) >> 1) & 0x7fff);
+        }
+        if(blockAvail[BLOCK_TYPE_C] && blockAvail[BLOCK_TYPE_D]) {
+            // Hour is somewhat in block C but rest are in D
+            clock_hour = ((blocks[BLOCK_TYPE_C] >> 10) & 1);
+            clock_hour <<= 4;
+            clock_hour |= blocks[BLOCK_TYPE_D] >> 22;
 
-                clock_minute = ((blocks[BLOCK_TYPE_D] >> 16) & 0x3f);
+            clock_minute = ((blocks[BLOCK_TYPE_D] >> 16) & 0x3f);
 
-                clock_offset_sense = ((blocks[BLOCK_TYPE_D] >> 15) & 1);
+            clock_offset_sense = ((blocks[BLOCK_TYPE_D] >> 15) & 1);
 
-                clock_offset = ((blocks[BLOCK_TYPE_D] >> 10) & 0x1f);
-            }
+            clock_offset = ((blocks[BLOCK_TYPE_D] >> 10) & 0x1f);
         }
     }
 
@@ -481,25 +479,31 @@ namespace rds {
         // Decode depending on group type
         switch (groupType) {
         case 0:
+            // PS, AF
             decodeGroup0();
             break;
         case 1:
+            // ECC, LIC, PIN
             decodeGroup1();
             break;
         case 2:
+            // RT
             decodeGroup2();
             break;
         case 4:
+            // CT
             if(groupVer == GROUP_VER_A) {
                 decodeGroup4A();
             }
             break;
         case 10:
+            // PTYN
             if(groupVer == GROUP_VER_A) {
                 decodeGroup10A();
             }
             break;
         case 15:
+            // LPS
             if(groupVer == GROUP_VER_A) {
                 decodeGroup15A();
             }

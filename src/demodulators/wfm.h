@@ -329,13 +329,13 @@ namespace demod {
                     ImGui::TableSetColumnIndex(0);
                     ImGui::TextUnformatted("Time");
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("---");
+                    ImGui::Text("--:-- (--:--)");
 
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
                     ImGui::TextUnformatted("Date");
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("---");
+                    ImGui::Text("--.--.---- (DD.MM.YYYY)");
                 }
 
 
@@ -399,24 +399,24 @@ namespace demod {
 
             char buf[154];
             if (_this->rdsDecode.PSNameValid() && _this->rdsDecode.radioTextValid() && _this->rdsDecode.LPSNameValid()) {
-                sprintf(buf, "PS: %s\nLPS: %s\nRT (%s): %s", _this->rdsDecode.getPSName().c_str(), _this->rdsDecode.getLPSName().c_str(), _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
+                sprintf(buf, "Radio Data System Information:\nPS: %s\nLPS: %s\nRT (%s): %s", _this->rdsDecode.getPSName().c_str(), _this->rdsDecode.getLPSName().c_str(), _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
             } else if (_this->rdsDecode.PSNameValid() && _this->rdsDecode.radioTextValid()) {
-                sprintf(buf, "PS: %s\nLPS: -\nRT (%s): %s", _this->rdsDecode.getPSName().c_str(), _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
+                sprintf(buf, "Radio Data System Information:\nPS: %s\nLPS: -\nRT (%s): %s", _this->rdsDecode.getPSName().c_str(), _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
             }
             else if (_this->rdsDecode.LPSNameValid() && _this->rdsDecode.PSNameValid()) {
-                sprintf(buf, "PS: %s\nLPS: %s\nRT (-): -", _this->rdsDecode.getPSName().c_str(), _this->rdsDecode.getLPSName().c_str());
+                sprintf(buf, "Radio Data System Information:\nPS: %s\nLPS: %s\nRT (-): -", _this->rdsDecode.getPSName().c_str(), _this->rdsDecode.getLPSName().c_str());
             }
             else if (_this->rdsDecode.radioTextValid() && _this->rdsDecode.LPSNameValid()) {
-                sprintf(buf, "PS: -\nLPS: %s\nRT (%s): %s", _this->rdsDecode.getLPSName().c_str(), _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
+                sprintf(buf, "Radio Data System Information:\nPS: -\nLPS: %s\nRT (%s): %s", _this->rdsDecode.getLPSName().c_str(), _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
             }
             else if (_this->rdsDecode.LPSNameValid()) {
-                sprintf(buf, "PS: -\nLPS: %s\nRT (-): -", _this->rdsDecode.getLPSName().c_str());
+                sprintf(buf, "Radio Data System Information:\nPS: -\nLPS: %s\nRT (-): -", _this->rdsDecode.getLPSName().c_str());
             }
             else if (_this->rdsDecode.PSNameValid()) {
-                sprintf(buf, "PS: %s\nLPS: -\nRT (-): -", _this->rdsDecode.getPSName().c_str());
+                sprintf(buf, "Radio Data System Information:\nPS: %s\nLPS: -\nRT (-): -", _this->rdsDecode.getPSName().c_str());
             }
             else if (_this->rdsDecode.radioTextValid()) {
-                sprintf(buf, "PS: -\nLPS: -\nRT (%s): %s", _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
+                sprintf(buf, "Radio Data System Information:\nPS: -\nLPS: -\nRT (%s): %s", _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
             }
             else {
                 return;
