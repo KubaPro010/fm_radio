@@ -85,7 +85,7 @@ public:
         // Register the menu
         gui::menu.registerEntry(name, menuHandler, this, this);
 
-        // Register the module interface. this communicates with for example discord integration
+        // Register the module interface. this communicates with for example discord integration, dont change the radio thing
         core::modComManager.registerInterface("radio", name, moduleInterfaceHandler, this);
     }
 
@@ -229,9 +229,6 @@ private:
         }
         selectedDemod = demod;
 
-        // Give the demodulator the most recent audio SR
-        selectedDemod->AFSampRateChanged(audioSampleRate);
-
         // Set the demodulator's input
         selectedDemod->setInput(ifChain.out);
 
@@ -325,7 +322,6 @@ private:
     void setAudioSampleRate(double sr) {
         audioSampleRate = sr;
         if (!selectedDemod) { return; }
-        selectedDemod->AFSampRateChanged(audioSampleRate);
         afChain.stop();
 
         // Configure resampler

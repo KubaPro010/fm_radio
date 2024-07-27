@@ -4,7 +4,7 @@ SDRPP_MOD_INFO{
     /* Name:            */ "fm_radio",
     /* Description:     */ "FM Radio demodulator and RDS decoder",
     /* Author:          */ "kuba201",
-    /* Version:         */ 1, 0, 0,
+    /* Version:         */ 1, 0, 1,
     /* Max instances    */ -1
 };
 

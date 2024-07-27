@@ -114,7 +114,6 @@ namespace rds {
         { 0xB0E, "NPR-6" }
     };
 
-    //                           9876543210
     const uint16_t LFSR_POLY = 0b0110111001;
     const uint16_t IN_POLY   = 0b1100011011;
 
@@ -578,6 +577,52 @@ namespace rds {
         else {
             return "Not Assigned";
         }
+    }
+
+    void Decoder::reset() {
+        ctRecv = false;
+        piCode = 0;
+        programCoverage = AREA_COVERAGE_LOCAL;
+        callsign = "";
+
+        groupType = 0;
+        groupVer = GROUP_VER_A;
+        trafficProgram = false;
+        programType = PROGRAM_TYPE_EU_NONE;
+
+        trafficAnnouncement = false;
+        ms = false;
+
+        decoderIdent = 0;
+        alternativeFrequency = 0;
+        ps = "        ";
+
+        radioText = "                                                                ";
+        lastRTAB = false;
+
+        lastPTYNAB = false;
+        programTypeName = "        ";
+
+        ecc = 0;
+        lic = 0;
+
+        longPS = "                                ";
+
+        clock_hour = 0;
+        clock_minute = 0;
+        clock_offset_sense = false;
+        clock_offset = 0;
+        clock_mjd = 0;
+
+        blockALastUpdate = std::chrono::high_resolution_clock::time_point();
+        blockBLastUpdate = std::chrono::high_resolution_clock::time_point();
+        group0LastUpdate = std::chrono::high_resolution_clock::time_point();
+        group2LastUpdate = std::chrono::high_resolution_clock::time_point();
+        group10LastUpdate = std::chrono::high_resolution_clock::time_point();
+        group1LastUpdate = std::chrono::high_resolution_clock::time_point();
+        group15LastUpdate = std::chrono::high_resolution_clock::time_point();
+        licLastUpdate = std::chrono::high_resolution_clock::time_point();
+        eccLastUpdate = std::chrono::high_resolution_clock::time_point();
     }
 
     bool Decoder::blockAValid() {

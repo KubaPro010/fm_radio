@@ -14,9 +14,9 @@ enum DeemphasisMode {
 };
 
 enum IFNRPreset {
-    IFNR_PRESET_NOAA_APT,
-    IFNR_PRESET_VOICE,
-    IFNR_PRESET_NARROW_BAND,
+    PLACEHOLDER1,
+    PLACEHOLDER2,
+    PLACEHOLDER3,
     IFNR_PRESET_BROADCAST
 };
 
@@ -30,7 +30,7 @@ namespace demod {
         virtual void showMenu() = 0;
         virtual void setBandwidth(double bandwidth) = 0;
         virtual void setInput(dsp::stream<dsp::complex_t>* input) = 0;
-        virtual void AFSampRateChanged(double newSR) = 0;
+        virtual void FrequencyChanged() = 0;
         virtual double getIFSampleRate() = 0;
         virtual double getAFSampleRate() = 0;
         virtual double getDefaultBandwidth() = 0;
@@ -43,4 +43,4 @@ namespace demod {
     };
 }
 
-#include "demodulators/wfm.h"
+#include "wfm_demod.h"

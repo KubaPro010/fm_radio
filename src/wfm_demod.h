@@ -1,7 +1,7 @@
 #pragma once
-#include "../demod.h"
+#include "demod.h"
 #include <dsp/demod/broadcast_fm.h>
-#include "../rds_demod.h"
+#include "rds_demod.h"
 #include <gui/widgets/symbol_diagram.h>
 #include <fstream>
 #include <rds.h>
@@ -341,6 +341,10 @@ namespace demod {
 
                 ImGui::EndTable();
 
+                if(ImGui::Button("Reset", ImVec2(menuWidth, 0))) {
+                    rdsDecode.reset();
+                }
+
                 ImGui::SetNextItemWidth(menuWidth);
                 diag.draw();
             }
@@ -354,7 +358,10 @@ namespace demod {
             demod.setInput(input);
         }
 
-        void AFSampRateChanged(double newSR) {}
+        void FrequencyChanged() {
+            // TODO: VFO doesnt tell the frequency selected, hereby we have no idea what frequency is selected so we cant tell if it changed, thanks Ryzerth 🤦
+            rdsDecode.reset();
+        }
 
         // ============= INFO =============
 
@@ -399,24 +406,24 @@ namespace demod {
 
             char buf[154];
             if (_this->rdsDecode.PSNameValid() && _this->rdsDecode.radioTextValid() && _this->rdsDecode.LPSNameValid()) {
-                sprintf(buf, "Radio Data System Information:\nPS: %s\nLPS: %s\nRT (%s): %s", _this->rdsDecode.getPSName().c_str(), _this->rdsDecode.getLPSName().c_str(), _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
+                sprintf(buf, "Radio Data System Information:\n\tPS: %s\n\tLPS: %s\n\tRT (%s): %s", _this->rdsDecode.getPSName().c_str(), _this->rdsDecode.getLPSName().c_str(), _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
             } else if (_this->rdsDecode.PSNameValid() && _this->rdsDecode.radioTextValid()) {
-                sprintf(buf, "Radio Data System Information:\nPS: %s\nLPS: -\nRT (%s): %s", _this->rdsDecode.getPSName().c_str(), _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
+                sprintf(buf, "Radio Data System Information:\n\tPS: %s\n\tLPS: -\n\tRT (%s): %s", _this->rdsDecode.getPSName().c_str(), _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
             }
             else if (_this->rdsDecode.LPSNameValid() && _this->rdsDecode.PSNameValid()) {
-                sprintf(buf, "Radio Data System Information:\nPS: %s\nLPS: %s\nRT (-): -", _this->rdsDecode.getPSName().c_str(), _this->rdsDecode.getLPSName().c_str());
+                sprintf(buf, "Radio Data System Information:\n\tPS: %s\n\tLPS: %s\n\tRT (-): -", _this->rdsDecode.getPSName().c_str(), _this->rdsDecode.getLPSName().c_str());
             }
             else if (_this->rdsDecode.radioTextValid() && _this->rdsDecode.LPSNameValid()) {
-                sprintf(buf, "Radio Data System Information:\nPS: -\nLPS: %s\nRT (%s): %s", _this->rdsDecode.getLPSName().c_str(), _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
+                sprintf(buf, "Radio Data System Information:\n\tPS: -\n\tLPS: %s\n\tRT (%s): %s", _this->rdsDecode.getLPSName().c_str(), _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
             }
             else if (_this->rdsDecode.LPSNameValid()) {
-                sprintf(buf, "Radio Data System Information:\nPS: -\nLPS: %s\nRT (-): -", _this->rdsDecode.getLPSName().c_str());
+                sprintf(buf, "Radio Data System Information:\n\tPS: -\n\tLPS: %s\n\tRT (-): -", _this->rdsDecode.getLPSName().c_str());
             }
             else if (_this->rdsDecode.PSNameValid()) {
-                sprintf(buf, "Radio Data System Information:\nPS: %s\nLPS: -\nRT (-): -", _this->rdsDecode.getPSName().c_str());
+                sprintf(buf, "Radio Data System Information:\n\tPS: %s\n\tLPS: -\n\tRT (-): -", _this->rdsDecode.getPSName().c_str());
             }
             else if (_this->rdsDecode.radioTextValid()) {
-                sprintf(buf, "Radio Data System Information:\nPS: -\nLPS: -\nRT (%s): %s", _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
+                sprintf(buf, "Radio Data System Information:\n\tPS: -\n\tLPS: -\n\tRT (%s): %s", _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
             }
             else {
                 return;

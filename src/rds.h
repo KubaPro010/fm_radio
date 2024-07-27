@@ -5,13 +5,13 @@
 #include <mutex>
 
 #define RDS_BLOCK_A_TIMEOUT_MS  15000.0
-#define RDS_BLOCK_B_TIMEOUT_MS  5000.0
-#define RDS_GROUP_0_TIMEOUT_MS  5000.0
-#define RDS_GROUP_2_TIMEOUT_MS  5000.0
-#define RDS_GROUP_10_TIMEOUT_MS 6000.0
+#define RDS_BLOCK_B_TIMEOUT_MS  4000.0
+#define RDS_GROUP_0_TIMEOUT_MS  6000.0
+#define RDS_GROUP_2_TIMEOUT_MS  6500.0
+#define RDS_GROUP_10_TIMEOUT_MS 7500.0
 #define RDS_GROUP_15_TIMEOUT_MS 8000.0
 #define RDS_ECC_TIMEOUT_MS  15000.0
-#define RDS_LIC_TIMEOUT_MS  4000.0
+#define RDS_LIC_TIMEOUT_MS  6000.0
 
 namespace rds {
     enum BlockType {
@@ -48,12 +48,12 @@ namespace rds {
         AREA_COVERAGE_REGIONAL12        = 15
     };
 
-    enum AlternativeFrequencySpecialCodes {
-        ALTERNATIVE_FREQUENCY_SPECIAL_CODES_FILLER = 205,
-        ALTERNATIVE_FREQUENCY_SPECIAL_CODES_NO_AF = 224,
-        ALTERNATIVE_FREQUENCY_SPECIAL_CODES_AF_COUNT_BASE = 224,
-        ALTERNATIVE_FREQUENCY_SPECIAL_CODES_LFMF_FOLLOWS = 250,
-    };
+    // enum AlternativeFrequencySpecialCodes {
+    //     ALTERNATIVE_FREQUENCY_SPECIAL_CODES_FILLER = 205,
+    //     ALTERNATIVE_FREQUENCY_SPECIAL_CODES_NO_AF = 224,
+    //     ALTERNATIVE_FREQUENCY_SPECIAL_CODES_AF_COUNT_BASE = 224,
+    //     ALTERNATIVE_FREQUENCY_SPECIAL_CODES_LFMF_FOLLOWS = 250,
+    // };
 
     inline const char* AREA_COVERAGE_TO_STR[] = {
         "Local",
@@ -276,6 +276,7 @@ namespace rds {
         bool programTypeNameValid() { std::lock_guard<std::mutex> lck(group10Mtx); return group10Valid(); }
         std::string getProgramTypeName() { std::lock_guard<std::mutex> lck(group10Mtx); return programTypeName; }
 
+        void reset();
     private:
         static uint16_t calcSyndrome(uint32_t block);
         static uint32_t correctErrors(uint32_t block, BlockType type, bool& recovered);
@@ -349,8 +350,8 @@ namespace rds {
         std::chrono::time_point<std::chrono::high_resolution_clock> group1LastUpdate{};  // 1970-01-01
         std::chrono::time_point<std::chrono::high_resolution_clock> eccLastUpdate{};  // 1970-01-01
         std::chrono::time_point<std::chrono::high_resolution_clock> licLastUpdate{};  // 1970-01-01
-        uint8_t ecc;
-        uint16_t lic;
+        uint8_t ecc = 0;
+        uint16_t lic = 0;
 
         // Group type 15
         std::mutex group15Mtx;
@@ -359,11 +360,11 @@ namespace rds {
 
         // Group type 4A
         std::mutex group4AMtx;
-        uint8_t clock_hour;
-        uint8_t clock_minute;
-        bool clock_offset_sense;
-        uint8_t clock_offset;
-        double clock_mjd;
-        bool ctRecv;
+        uint8_t clock_hour = 0;
+        uint8_t clock_minute = 0;
+        bool clock_offset_sense = false;
+        uint8_t clock_offset = 0;
+        double clock_mjd = 0;
+        bool ctRecv = false;
     };
 }
