@@ -404,30 +404,14 @@ namespace demod {
             WFM* _this = (WFM*)ctx;
             if (!_this->_rds) { return; }
 
-            char buf[154];
-            if (_this->rdsDecode.PSNameValid() && _this->rdsDecode.radioTextValid() && _this->rdsDecode.LPSNameValid()) {
-                sprintf(buf, "Radio Data System Information:\n\tPS: %s\n\tLPS: %s\n\tRT (%s): %s", _this->rdsDecode.getPSName().c_str(), _this->rdsDecode.getLPSName().c_str(), _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
-            } else if (_this->rdsDecode.PSNameValid() && _this->rdsDecode.radioTextValid()) {
-                sprintf(buf, "Radio Data System Information:\n\tPS: %s\n\tLPS: -\n\tRT (%s): %s", _this->rdsDecode.getPSName().c_str(), _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
-            }
-            else if (_this->rdsDecode.LPSNameValid() && _this->rdsDecode.PSNameValid()) {
-                sprintf(buf, "Radio Data System Information:\n\tPS: %s\n\tLPS: %s\n\tRT (-): -", _this->rdsDecode.getPSName().c_str(), _this->rdsDecode.getLPSName().c_str());
-            }
-            else if (_this->rdsDecode.radioTextValid() && _this->rdsDecode.LPSNameValid()) {
-                sprintf(buf, "Radio Data System Information:\n\tPS: -\n\tLPS: %s\n\tRT (%s): %s", _this->rdsDecode.getLPSName().c_str(), _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
-            }
-            else if (_this->rdsDecode.LPSNameValid()) {
-                sprintf(buf, "Radio Data System Information:\n\tPS: -\n\tLPS: %s\n\tRT (-): -", _this->rdsDecode.getLPSName().c_str());
-            }
-            else if (_this->rdsDecode.PSNameValid()) {
-                sprintf(buf, "Radio Data System Information:\n\tPS: %s\n\tLPS: -\n\tRT (-): -", _this->rdsDecode.getPSName().c_str());
-            }
-            else if (_this->rdsDecode.radioTextValid()) {
-                sprintf(buf, "Radio Data System Information:\n\tPS: -\n\tLPS: -\n\tRT (%s): %s", _this->rdsDecode.getRadioTextAB().c_str(), _this->rdsDecode.getRadioText().c_str());
-            }
-            else {
-                return;
-            }
+            char buf[192];
+            std::string ps = _this->rdsDecode.PSNameValid() ? _this->rdsDecode.getPSName() : "-";
+            std::string lps = _this->rdsDecode.LPSNameValid() ? _this->rdsDecode.getLPSName() : "-";
+            std::string rt = _this->rdsDecode.radioTextValid() ? _this->rdsDecode.getRadioText() : "-";
+            std::string rtAB = _this->rdsDecode.radioTextValid() ? _this->rdsDecode.getRadioTextAB() : "-";
+
+            snprintf(buf, sizeof(buf), "Radio Data System Information:\n\tPS: %s\n\tLPS: %s\n\tRT (%s): %s", 
+                ps.c_str(), lps.c_str(), rtAB.c_str(), rt.c_str());
 
             // Calculate paddings
             ImVec2 min = args.min;
