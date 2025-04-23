@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <string>
+#include <array>
 #include <chrono>
 #include <mutex>
 
@@ -11,7 +12,6 @@
 #define RDS_GROUP_10_TIMEOUT_MS 7500.0
 #define RDS_GROUP_15_TIMEOUT_MS 8000.0
 #define RDS_ECC_TIMEOUT_MS  15000.0
-#define RDS_LIC_TIMEOUT_MS  6000.0
 
 namespace rds {
     enum BlockType {
@@ -243,13 +243,10 @@ namespace rds {
         uint8_t getClockOffset() { std::lock_guard<std::mutex> lck(group4AMtx); return clock_offset; }
         bool getClockOffsetSense() { std::lock_guard<std::mutex> lck(group4AMtx); return clock_offset_sense; }
 
-        bool CTReceived() { return ctRecv; }
+        bool CTReceived() { std::lock_guard<std::mutex> lck(group4AMtx); return getMJDMonth(clock_mjd) != 0; }
 
-        bool LPSNameValid() { std::lock_guard<std::mutex> lck(group15Mtx); return group15Valid(); }
-        std::string getLPSName() { std::lock_guard<std::mutex> lck(group15Mtx); return longPS; }
-
-        bool licValid();
-        uint16_t getLic() { std::lock_guard<std::mutex> lck(group1Mtx); return lic; }
+        bool LPSNameValid() { std::lock_guard<std::mutex> lck(group15AMtx); return group15Valid(); }
+        std::string getLPSName() { std::lock_guard<std::mutex> lck(group15AMtx); return longPS; }
 
         bool eccValid();
         uint16_t getEcc() { std::lock_guard<std::mutex> lck(group1Mtx); return ecc; }
@@ -264,7 +261,10 @@ namespace rds {
         uint8_t getDi() { std::lock_guard<std::mutex> lck(group0Mtx); return decoderIdent; }
 
         bool musicValid() { std::lock_guard<std::mutex> lck(group0Mtx); return group0Valid(); }
-        bool getMusic() { std::lock_guard<std::mutex> lck(group0Mtx); return ms; }
+
+        bool afValid() { std::lock_guard<std::mutex> lck(group0Mtx); return group0Valid() && afCount != 0; }
+        uint8_t getAFCount() { std::lock_guard<std::mutex> lck(group0Mtx); return afCount; }
+        std::array<uint32_t, 25> getAFs() { std::lock_guard<std::mutex> lck(group0Mtx); return afs; }
 
         bool PSNameValid() { std::lock_guard<std::mutex> lck(group0Mtx); return group0Valid(); }
         std::string getPSName() { std::lock_guard<std::mutex> lck(group0Mtx); return ps; }
@@ -287,8 +287,11 @@ namespace rds {
         void decodeGroup10A();
         void decodeGroup1();
         void decodeGroup15A();
+        void decodeGroup15B();
         void decodeGroup4A();
         void decodeGroup();
+
+        void decodeAlternativeFrequencies();
 
         static std::string base26ToCall(uint16_t pi);
         static std::string decodeCallsign(uint16_t pi);
@@ -328,10 +331,14 @@ namespace rds {
         std::mutex group0Mtx;
         std::chrono::time_point<std::chrono::high_resolution_clock> group0LastUpdate{};  // 1970-01-01
         bool trafficAnnouncement;
-        bool ms;
         uint8_t decoderIdent;
-        uint16_t alternativeFrequency;
+        uint16_t alternativeFrequency;        
         std::string ps = "        ";
+
+        std::array<uint32_t, 25> afs;
+        uint8_t afCount;
+        uint8_t afState;
+        uint8_t afLfMfIncoming;
 
         // Group type 2
         std::mutex group2Mtx;
@@ -349,14 +356,16 @@ namespace rds {
         std::mutex group1Mtx;
         std::chrono::time_point<std::chrono::high_resolution_clock> group1LastUpdate{};  // 1970-01-01
         std::chrono::time_point<std::chrono::high_resolution_clock> eccLastUpdate{};  // 1970-01-01
-        std::chrono::time_point<std::chrono::high_resolution_clock> licLastUpdate{};  // 1970-01-01
         uint8_t ecc = 0;
-        uint16_t lic = 0;
 
-        // Group type 15
-        std::mutex group15Mtx;
-        std::chrono::time_point<std::chrono::high_resolution_clock> group15LastUpdate{};  // 1970-01-01
+        // Group type 15A
+        std::mutex group15AMtx;
+        std::chrono::time_point<std::chrono::high_resolution_clock> group15ALastUpdate{};  // 1970-01-01
         std::string longPS = "                                ";
+
+        // Group type 15B
+        std::mutex group15BMtx;
+        std::chrono::time_point<std::chrono::high_resolution_clock> group15BLastUpdate{};  // 1970-01-01
 
         // Group type 4A
         std::mutex group4AMtx;
@@ -365,6 +374,5 @@ namespace rds {
         bool clock_offset_sense = false;
         uint8_t clock_offset = 0;
         double clock_mjd = 0;
-        bool ctRecv = false;
     };
 }

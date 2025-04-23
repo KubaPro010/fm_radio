@@ -197,6 +197,37 @@ namespace demod {
                     ImGui::TextUnformatted("------- (--)");
                 }
 
+                if (rdsDecode.afValid()) {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextUnformatted("AF");
+                    ImGui::TableSetColumnIndex(1);
+                
+                    std::array<uint32_t, 25> arr = rdsDecode.getAFs();
+                    uint8_t count = rdsDecode.getAFCount();
+                
+                    // Ensure count is within bounds (not exceeding the size of the array)
+                    if (count > arr.size()) {
+                        count = arr.size();
+                    }
+                
+                    std::stringstream ss;
+                    for (int j = 0; j < count; ++j) {
+                        if (j > 0) {
+                            ss << " ";
+                        }
+                        ss << static_cast<int>(arr[j]);
+                    }
+                    ImGui::Text("%s", ss.str().c_str());
+                }
+                else {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextUnformatted("AF");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::TextUnformatted("---");
+                }                
+
                 if (rdsDecode.programTypeNameValid()) {
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
@@ -217,10 +248,7 @@ namespace demod {
                     ImGui::TableSetColumnIndex(0);
                     ImGui::TextUnformatted("Decoder ID");
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%s %s %s %s",
-                        ((rdsDecode.getDi() & 1) == 1) ? "Stereo":"Mono",
-                        ((rdsDecode.getDi() & 2) == 2) ? "Artificial Head":"",
-                        ((rdsDecode.getDi() & 4) == 4) ? "Compressed":"",
+                    ImGui::Text("%s",
                         ((rdsDecode.getDi() & 8) == 8) ? "Dynamic PTY":"Static PTY");
                 }
                 else {
@@ -258,21 +286,6 @@ namespace demod {
                     ImGui::TextUnformatted("---");
                 }
 
-                if (rdsDecode.musicValid()) {
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted("M/S");
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%s", rdsDecode.getMusic() ? "Music":"Speech");
-                }
-                else {
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted("M/S");
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::TextUnformatted("---");
-                }
-
                 if (rdsDecode.eccValid()) {
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
@@ -286,21 +299,6 @@ namespace demod {
                     ImGui::TextUnformatted("ECC");
                     ImGui::TableSetColumnIndex(1);
                     ImGui::TextUnformatted("--");
-                }
-
-                if (rdsDecode.licValid()) {
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted("LIC");
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%03X", rdsDecode.getLic());
-                }
-                else {
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted("LIC");
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::TextUnformatted("---");
                 }
 
                 if(rdsDecode.CTReceived()) {
@@ -454,7 +452,6 @@ namespace demod {
 
         int rdsRegionId = 0;
         RDSRegion rdsRegion = RDS_REGION_EUROPE;
-
         OptionList<std::string, RDSRegion> rdsRegions;
 
         std::string name;
