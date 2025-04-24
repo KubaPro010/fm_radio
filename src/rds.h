@@ -8,10 +8,12 @@
 #define RDS_BLOCK_A_TIMEOUT_MS  15000.0
 #define RDS_BLOCK_B_TIMEOUT_MS  4000.0
 #define RDS_GROUP_0_TIMEOUT_MS  6000.0
+#define RDS_ECC_TIMEOUT_MS  15000.0
 #define RDS_GROUP_2_TIMEOUT_MS  6500.0
+#define RDS_GROUP_3A_TIMEOUT_MS 30000.0
 #define RDS_GROUP_10_TIMEOUT_MS 7500.0
 #define RDS_GROUP_15_TIMEOUT_MS 8000.0
-#define RDS_ECC_TIMEOUT_MS  15000.0
+#define RDS_GROUP_RTP_TIMEOUT_MS 15000.0
 
 namespace rds {
     enum BlockType {
@@ -48,12 +50,18 @@ namespace rds {
         AREA_COVERAGE_REGIONAL12        = 15
     };
 
-    // enum AlternativeFrequencySpecialCodes {
-    //     ALTERNATIVE_FREQUENCY_SPECIAL_CODES_FILLER = 205,
-    //     ALTERNATIVE_FREQUENCY_SPECIAL_CODES_NO_AF = 224,
-    //     ALTERNATIVE_FREQUENCY_SPECIAL_CODES_AF_COUNT_BASE = 224,
-    //     ALTERNATIVE_FREQUENCY_SPECIAL_CODES_LFMF_FOLLOWS = 250,
-    // };
+    typedef struct
+	{
+		uint8_t GroupType;
+		GroupVersion GroupVer;
+		uint16_t AID;
+	} ODAAID;
+
+    enum AlternativeFrequencySpecialCodes {
+        ALTERNATIVE_FREQUENCY_SPECIAL_CODES_FILLER = 205,
+        ALTERNATIVE_FREQUENCY_SPECIAL_CODES_AF_COUNT_BASE = 224,
+        ALTERNATIVE_FREQUENCY_SPECIAL_CODES_LFMF_FOLLOWS = 250,
+    };
 
     inline const char* AREA_COVERAGE_TO_STR[] = {
         "Local",
@@ -214,6 +222,81 @@ namespace rds {
         "Emergency",
     };
 
+    inline const char *RTP_TO_STR[64] = {
+        /* dummy */
+        "Unknown",
+        /* item */
+        "Title",
+        "Album",
+        "Tracknumber",
+        "Artist",
+        "Composition"
+        "Movement",
+        "Conductor",
+        "Composer",
+        "Band",
+        "Comment",
+        "Genre",
+        /* info */
+        "News",
+        "Local News",
+        "Stock Market",
+        "Sport",
+        "Lottery",
+        "Horoscope",
+        "Daily Diversion",
+        "Health",
+        "Event",
+        "Scene",
+        "Cinema",
+        "TV",
+        "DateTime",
+        "Weather",
+        "Traffic",
+        "Alarm",
+        "Advertisement",
+        "URL",
+        "Other",
+        /* program */
+        "Short Name",
+        "Long Name",
+        "Current Programme",
+        "Next Programme",
+        "Programme Part",
+        "Host Programme",
+        "Programme Editiorial Staff",
+        "Frequency",
+        "Homepage",
+        "Subchannel",
+        /* interactivity */
+        "Hotline Phone",
+        "Studio Phone",
+        "Other Phone",
+        "SMS Studio",
+        "Other SMS",
+        "E-mail Hotline",
+        "E-mail Studio",
+        "Other E-mail",
+        "Other MMS",
+        "Chat",
+        "Chat Centre",
+        "Vote Question",
+        "Vote Centre",
+        /* rfu */
+        "RFU_1",
+        "RFU_2",
+        /* private classes */
+        "PRIVATE_1",
+        "PRIVATE_2",
+        "PRIVATE_3",
+        /* descriptor */
+        "Place",
+        "Appointment",
+        "Identifier",
+        "Purchase",
+        "Get Data"
+    };
+
     enum DecoderIdentification {
         DECODER_IDENT_STEREO = (1 << 0),
         DECODER_IDENT_ARTIFICIAL_HEAD = (1 << 1),
@@ -245,7 +328,7 @@ namespace rds {
 
         bool CTReceived() { std::lock_guard<std::mutex> lck(group4AMtx); return getMJDMonth(clock_mjd) != 0; }
 
-        bool LPSNameValid() { std::lock_guard<std::mutex> lck(group15AMtx); return group15Valid(); }
+        bool LPSNameValid() { std::lock_guard<std::mutex> lck(group15AMtx); return group15AValid(); }
         std::string getLPSName() { std::lock_guard<std::mutex> lck(group15AMtx); return longPS; }
 
         bool eccValid();
@@ -266,6 +349,20 @@ namespace rds {
         uint8_t getAFCount() { std::lock_guard<std::mutex> lck(group0Mtx); return afCount; }
         std::array<uint32_t, 25> getAFs() { std::lock_guard<std::mutex> lck(group0Mtx); return afs; }
 
+        bool odaAIDValid() { std::lock_guard<std::mutex> lck(group3AMtx); return oda_aid_count != 0; }
+        std::array<ODAAID, 8> getOdaAID() { std::lock_guard<std::mutex> lck(group3AMtx); return odas_aid; }
+        uint8_t getOdaAIDCount() { std::lock_guard<std::mutex> lck(group3AMtx); return oda_aid_count; }
+
+        bool rtpValid() { std::lock_guard<std::mutex> lck(rtpMtx); return groupRTPvalid(); }
+        bool getRTPRunning() { std::lock_guard<std::mutex> lck(rtpMtx); return rtp_item_running; }
+        bool getRTPToggle() { std::lock_guard<std::mutex> lck(rtpMtx); return rtp_item_toggle; }
+        uint8_t getRTPContentType1() { std::lock_guard<std::mutex> lck(rtpMtx); return rtp_content_type_1; }
+        uint8_t getRTPContentType1Start() { std::lock_guard<std::mutex> lck(rtpMtx); return rtp_content_type_1_start; }
+        uint8_t getRTPContentType1Len() { std::lock_guard<std::mutex> lck(rtpMtx); return rtp_content_type_1_len+1; }
+        uint8_t getRTPContentType2() { std::lock_guard<std::mutex> lck(rtpMtx); return rtp_content_type_2; }
+        uint8_t getRTPContentType2Start() { std::lock_guard<std::mutex> lck(rtpMtx); return rtp_content_type_2_start; }
+        uint8_t getRTPContentType2Len() { std::lock_guard<std::mutex> lck(rtpMtx); return rtp_content_type_2_len+1; }
+        
         bool PSNameValid() { std::lock_guard<std::mutex> lck(group0Mtx); return group0Valid(); }
         std::string getPSName() { std::lock_guard<std::mutex> lck(group0Mtx); return ps; }
 
@@ -273,8 +370,8 @@ namespace rds {
         std::string getRadioText() { std::lock_guard<std::mutex> lck(group2Mtx); return radioText; }
         std::string getRadioTextAB() { std::lock_guard<std::mutex> lck(group2Mtx); return lastRTAB ? (std::string)"B" : (std::string)"A"; }
 
-        bool programTypeNameValid() { std::lock_guard<std::mutex> lck(group10Mtx); return group10Valid(); }
-        std::string getProgramTypeName() { std::lock_guard<std::mutex> lck(group10Mtx); return programTypeName; }
+        bool programTypeNameValid() { std::lock_guard<std::mutex> lck(group10AMtx); return group10AValid(); }
+        std::string getProgramTypeName() { std::lock_guard<std::mutex> lck(group10AMtx); return programTypeName; }
 
         void reset();
     private:
@@ -283,12 +380,15 @@ namespace rds {
         void decodeBlockA();
         void decodeBlockB();
         void decodeGroup0();
+        void decodeGroup1A();
         void decodeGroup2();
+        void decodeGroup3A();
+        void decodeGroup4A();
         void decodeGroup10A();
-        void decodeGroup1();
         void decodeGroup15A();
         void decodeGroup15B();
-        void decodeGroup4A();
+        void decodeGroupRTP();
+        void decodeGroupODA();
         void decodeGroup();
 
         void decodeAlternativeFrequencies();
@@ -300,8 +400,10 @@ namespace rds {
         bool blockBValid();
         bool group0Valid();
         bool group2Valid();
-        bool group10Valid();
-        bool group15Valid();
+        bool group10AValid();
+        bool group15AValid();
+
+        bool groupRTPvalid();
 
         // State machine
         uint32_t shiftReg = 0;
@@ -340,32 +442,22 @@ namespace rds {
         uint8_t afState;
         uint8_t afLfMfIncoming;
 
-        // Group type 2
-        std::mutex group2Mtx;
-        std::chrono::time_point<std::chrono::high_resolution_clock> group2LastUpdate{};  // 1970-01-01
-        bool lastRTAB = false;
-        std::string radioText = "                                                                ";
-
-        // Group type 10
-        std::mutex group10Mtx;
-        std::chrono::time_point<std::chrono::high_resolution_clock> group10LastUpdate{};  // 1970-01-01
-        bool lastPTYNAB = false;
-        std::string programTypeName = "        ";
-
         // Group type 1
         std::mutex group1Mtx;
         std::chrono::time_point<std::chrono::high_resolution_clock> group1LastUpdate{};  // 1970-01-01
         std::chrono::time_point<std::chrono::high_resolution_clock> eccLastUpdate{};  // 1970-01-01
         uint8_t ecc = 0;
 
-        // Group type 15A
-        std::mutex group15AMtx;
-        std::chrono::time_point<std::chrono::high_resolution_clock> group15ALastUpdate{};  // 1970-01-01
-        std::string longPS = "                                ";
+        // Group type 2
+        std::mutex group2Mtx;
+        std::chrono::time_point<std::chrono::high_resolution_clock> group2LastUpdate{};  // 1970-01-01
+        bool lastRTAB = false;
+        std::string radioText = "                                                                ";
 
-        // Group type 15B
-        std::mutex group15BMtx;
-        std::chrono::time_point<std::chrono::high_resolution_clock> group15BLastUpdate{};  // 1970-01-01
+        // Group type 3A
+        std::mutex group3AMtx;
+        std::array<ODAAID, 8> odas_aid;
+        uint8_t oda_aid_count = 0;
 
         // Group type 4A
         std::mutex group4AMtx;
@@ -374,5 +466,34 @@ namespace rds {
         bool clock_offset_sense = false;
         uint8_t clock_offset = 0;
         double clock_mjd = 0;
+
+        // Group type 10A
+        std::mutex group10AMtx;
+        std::chrono::time_point<std::chrono::high_resolution_clock> group10ALastUpdate{};  // 1970-01-01
+        bool lastPTYNAB = false;
+        std::string programTypeName = "        ";
+
+        // Group type 15A
+        std::mutex group15AMtx;
+        std::chrono::time_point<std::chrono::high_resolution_clock> group15ALastUpdate{};  // 1970-01-01
+        std::string longPS = "                                ";
+
+        // Group type 15B doesnt have anything
+
+        // ODA
+        std::mutex odaMtx;
+        // RT+
+        std::mutex rtpMtx;
+        std::chrono::time_point<std::chrono::high_resolution_clock> rtpLastUpdate{};  // 1970-01-01
+        bool rtp_item_running = false;
+        bool rtp_item_toggle = false;
+
+        uint8_t rtp_content_type_1 = 0;
+        uint8_t rtp_content_type_1_start = 0;
+        uint8_t rtp_content_type_1_len = 0;
+
+        uint8_t rtp_content_type_2 = 0;
+        uint8_t rtp_content_type_2_start = 0;
+        uint8_t rtp_content_type_2_len = 0;
     };
 }

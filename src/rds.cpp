@@ -5,6 +5,7 @@
 
 #include <utils/flog.h>
 
+
 namespace rds {
 	std::map<uint16_t, BlockType> SYNDROMES = {
 		{ 0b1111011000, BLOCK_TYPE_A  },
@@ -127,7 +128,7 @@ namespace rds {
 			shiftReg = ((shiftReg << 1) & 0x3FFFFFF) | (symbols[i] & 1);
 
 			// Skip if we need to shift in new data
-			if (--skip > 0) { continue; }
+			if (--skip > 0) continue;
 
 			// Calculate the syndrome and update sync status
 			uint16_t syn = calcSyndrome(shiftReg);
@@ -136,32 +137,24 @@ namespace rds {
 			sync = std::clamp<int>(knownSyndrome ? ++sync : --sync, 0, 4);
 
 			// If we're still no longer in sync, try to resync
-			if (!sync) { continue; }
+			if (!sync) continue;
 
 			// Figure out which block we've got
 			BlockType type;
-			if (knownSyndrome) {
-				type = SYNDROMES[syn];
-			}
-			else {
-				type = (BlockType)((lastType + 1) % _BLOCK_TYPE_COUNT);
-			}
+			if (knownSyndrome) type = SYNDROMES[syn];
+			else type = (BlockType)((lastType + 1) % _BLOCK_TYPE_COUNT);
 
 			// Save block while correcting errors
 			blocks[type] = correctErrors(shiftReg, type, blockAvail[type]);
 
 			// If block type is A, decode it directly, otherwise, update continous count
-			if (type == BLOCK_TYPE_A) {
-				decodeBlockA();
-			}
-			else if (type == BLOCK_TYPE_B) { contGroup = 1; }
-			else if ((type == BLOCK_TYPE_C || type == BLOCK_TYPE_CP) && lastType == BLOCK_TYPE_B) { contGroup++; }
-			else if (type == BLOCK_TYPE_D && (lastType == BLOCK_TYPE_C || lastType == BLOCK_TYPE_CP)) { contGroup++; }
+			if (type == BLOCK_TYPE_A) decodeBlockA();
+			else if (type == BLOCK_TYPE_B)  contGroup = 1;
+			else if ((type == BLOCK_TYPE_C || type == BLOCK_TYPE_CP) && lastType == BLOCK_TYPE_B) contGroup++;
+			else if (type == BLOCK_TYPE_D && (lastType == BLOCK_TYPE_C || lastType == BLOCK_TYPE_CP)) contGroup++;
 			else {
 				// If block B is available, decode it alone.
-				if (contGroup == 1) {
-					decodeBlockB();
-				}
+				if (contGroup == 1) decodeBlockB();
 				contGroup = 0;
 			}
 
@@ -289,12 +282,13 @@ namespace rds {
 			uint8_t af0 = (alternativeFrequency >> 8) & 0xff;
 			uint8_t af1 = alternativeFrequency & 0xff;
 
-			if (af0 >= 224 && af0 <= 249) {
-				afCount = af0 - 224;
+			if (af0 >= ALTERNATIVE_FREQUENCY_SPECIAL_CODES_AF_COUNT_BASE && af0 <= ALTERNATIVE_FREQUENCY_SPECIAL_CODES_AF_COUNT_BASE+25) {
+				// First message is 224+n with n being the number of AFs, when we receive that we set the afCount and reset the afState in order to be in sync with the encoder
+				afCount = af0 - ALTERNATIVE_FREQUENCY_SPECIAL_CODES_AF_COUNT_BASE;
 				if(afCount > 25) {
 					afCount = 25;
 				}
-				if(af1 == 250) {
+				if(af1 == ALTERNATIVE_FREQUENCY_SPECIAL_CODES_LFMF_FOLLOWS) {
 					afLfMfIncoming = 1;
 					return;
 				}
@@ -302,9 +296,10 @@ namespace rds {
 			}
 
 			if(afState == 0) {
+				// Decode the first AF, which is next to the count
 				if(afCount != 0) {
-					if(af1 == 250) afLfMfIncoming = 1;
-					else if(af1 != 205) {
+					if(af1 == ALTERNATIVE_FREQUENCY_SPECIAL_CODES_LFMF_FOLLOWS) afLfMfIncoming = 1;
+					else if(af1 != ALTERNATIVE_FREQUENCY_SPECIAL_CODES_FILLER) {
 						if(afLfMfIncoming) {
 							afLfMfIncoming = 0;
 							if (af1 <= 15) afs[0] = (af1 - 1) * 9 + 153;
@@ -317,18 +312,19 @@ namespace rds {
 				}
 				return;
 			} else {
+				// Decode rest of the AFs
 				if(afLfMfIncoming) {
 					afLfMfIncoming = 0;
 					if (af0 <= 15) afs[afState] = (af0 - 1) * 9 + 153;
 					else afs[afState] = 9 * (af0 - 16) + 531;
 					afState++;
 
-					if(af1 == 250) afLfMfIncoming = 1;
+					if(af1 == ALTERNATIVE_FREQUENCY_SPECIAL_CODES_LFMF_FOLLOWS) afLfMfIncoming = 1;
 					else if(af1 != 205 && afState < 23) {
 						afs[afState] = (af1 + 875) * 100;
 						afState++;
 					}
-				} else if(af0 == 250) {
+				} else if(af0 == ALTERNATIVE_FREQUENCY_SPECIAL_CODES_LFMF_FOLLOWS) {
 					if (af1 <= 15) afs[afState] = (af1 - 1) * 9 + 153;
 					else afs[afState] = 9 * (af1 - 16) + 531;
 					afState++;
@@ -336,8 +332,8 @@ namespace rds {
 					afs[afState] = (af0 + 875) * 100;
 					afState++;
 
-					if(af1 == 250) afLfMfIncoming = 1;
-					else if(af1 != 205 && afState < 23) {
+					if(af1 == ALTERNATIVE_FREQUENCY_SPECIAL_CODES_LFMF_FOLLOWS) afLfMfIncoming = 1;
+					else if(af1 != ALTERNATIVE_FREQUENCY_SPECIAL_CODES_FILLER && afState < 23) {
 						afs[afState] = (af1 + 875) * 100;
 						afState++;
 					}
@@ -382,6 +378,25 @@ namespace rds {
 		group0LastUpdate = std::chrono::high_resolution_clock::now();
 	}
 
+	void Decoder::decodeGroup1A() {
+		// Acquire lock
+		std::lock_guard<std::mutex> lck(group1Mtx);
+
+		if (blockAvail[BLOCK_TYPE_C]) {
+			/* Decode the Slow Labeling Codes, these are only in group 1A */
+			uint8_t variant_code = (blocks[BLOCK_TYPE_C] >> 22) & 0b111;
+
+			if(variant_code == 0) {
+				/* ECC */
+				ecc = (blocks[BLOCK_TYPE_C] >> 10) & 0xFF; /* ECC is a single byte, 8 bits */
+				eccLastUpdate = std::chrono::high_resolution_clock::now();
+			}
+		}
+
+		// Update timeout
+		group1LastUpdate = std::chrono::high_resolution_clock::now();
+	}
+
 	void Decoder::decodeGroup2() {
 		// Acquire lock
 		std::lock_guard<std::mutex> lck(group2Mtx);
@@ -420,9 +435,68 @@ namespace rds {
 		group2LastUpdate = std::chrono::high_resolution_clock::now();
 	}
 
+	void Decoder::decodeGroup3A() {
+		// Acquire lock
+		std::lock_guard<std::mutex> lck(group3AMtx);
+
+		GroupVersion groupVer_oda = (GroupVersion)((blocks[BLOCK_TYPE_B] >> 10) & 1);
+		uint8_t groupType_oda = (blocks[BLOCK_TYPE_B] >> 11) & 0xF;
+		uint16_t aid = blocks[BLOCK_TYPE_D] >> 10;
+
+		if(aid == 0) {
+			// If the AID is 0, we don't need to do anything
+			return;
+		}
+
+		for(int i = 0; i < oda_aid_count; i++) {
+			if(odas_aid[i].AID == aid) {
+				// If we already have this AID, just update the group type
+				odas_aid[i].GroupType = groupType_oda;
+				odas_aid[i].GroupVer = groupVer_oda;
+				return;
+			}
+		}
+
+		// If we don't have this AID, add it to the list
+		if(oda_aid_count < 8) {
+			odas_aid[oda_aid_count].AID = aid;
+			odas_aid[oda_aid_count].GroupType = groupType_oda;
+			odas_aid[oda_aid_count].GroupVer = groupVer_oda;
+			oda_aid_count++;
+		}
+		else {
+			// If we don't have space, remove the oldest AID and add the new one
+			odas_aid[0].AID = aid;
+			odas_aid[0].GroupType = groupType_oda;
+			odas_aid[0].GroupVer = groupVer_oda;
+		}
+	}
+
+	void Decoder::decodeGroup4A() {
+		// Acquire lock
+		std::lock_guard<std::mutex> lck(group4AMtx);
+
+		if(blockAvail[BLOCK_TYPE_C]) {
+			// MJD is in the last bits of block b and whole block c
+			clock_mjd = (((blocks[BLOCK_TYPE_B] >> 10) & 0x03) << 15) | (((blocks[BLOCK_TYPE_C] >> 10) >> 1) & 0x7fff);
+		}
+		if(blockAvail[BLOCK_TYPE_C] && blockAvail[BLOCK_TYPE_D]) {
+			// Hour is somewhat in block C but rest are in D
+			clock_hour = ((blocks[BLOCK_TYPE_C] >> 10) & 1);
+			clock_hour <<= 4;
+			clock_hour |= blocks[BLOCK_TYPE_D] >> 22;
+
+			clock_minute = ((blocks[BLOCK_TYPE_D] >> 16) & 0x3f);
+
+			clock_offset_sense = ((blocks[BLOCK_TYPE_D] >> 15) & 1);
+
+			clock_offset = ((blocks[BLOCK_TYPE_D] >> 10) & 0x1f);
+		}
+	}
+
 	void Decoder::decodeGroup10A() {
 		// Acquire lock
-		std::lock_guard<std::mutex> lck(group10Mtx);
+		std::lock_guard<std::mutex> lck(group10AMtx);
 
 		// Check if the text needs to be cleared
 		bool ab = (blocks[BLOCK_TYPE_B] >> 14) & 1;
@@ -457,26 +531,7 @@ namespace rds {
 		}
 
 		// Update timeout
-		group10LastUpdate = std::chrono::high_resolution_clock::now();
-	}
-
-	void Decoder::decodeGroup1() {
-		// Acquire lock
-		std::lock_guard<std::mutex> lck(group1Mtx);
-
-		if (groupVer == GROUP_VER_A && blockAvail[BLOCK_TYPE_C]) {
-			/* Decode the Slow Labeling Codes, these are only in group 1A */
-			uint8_t variant_code = (blocks[BLOCK_TYPE_C] >> 22) & 0b111;
-
-			if(variant_code == 0) {
-				/* ECC */
-				ecc = (blocks[BLOCK_TYPE_C] >> 10) & 0xFF; /* ECC is a single byte, 8 bits */
-				eccLastUpdate = std::chrono::high_resolution_clock::now();
-			}
-		}
-
-		// Update timeout
-		group1LastUpdate = std::chrono::high_resolution_clock::now();
+		group10ALastUpdate = std::chrono::high_resolution_clock::now();
 	}
 
 	void Decoder::decodeGroup15A() {
@@ -500,7 +555,7 @@ namespace rds {
 
 	void Decoder::decodeGroup15B() {
 		// Acquire lock
-		std::lock_guard<std::mutex> lck(group15BMtx);
+		std::lock_guard<std::mutex> lck(group0Mtx);
 
 		bool ta_c = 0;
 		bool di_c = 0;
@@ -528,25 +583,74 @@ namespace rds {
 		decoderIdent |= (diBit << diBitPlacement);
 	}
 
-	void Decoder::decodeGroup4A() {
-		// Acquire lock
-		std::lock_guard<std::mutex> lck(group4AMtx);
-
-		if(blockAvail[BLOCK_TYPE_C]) {
-			// MJD is in the last bits of block b and whole block c
-			clock_mjd = (((blocks[BLOCK_TYPE_B] >> 10) & 0x03) << 15) | (((blocks[BLOCK_TYPE_C] >> 10) >> 1) & 0x7fff);
+	void Decoder::decodeGroupRTP() {
+		std::lock_guard<std::mutex> lck(rtpMtx);
+	
+		uint8_t b_lower = (blocks[BLOCK_TYPE_B] >> 10) & 0xFF;
+	
+		rtp_item_toggle = (b_lower >> 4) & 0x01;
+		rtp_item_running = (b_lower >> 3) & 0x01;
+	
+		uint8_t type1_upper = b_lower & 0x07;
+	
+		if (blockAvail[BLOCK_TYPE_C]) {
+			uint16_t c = blocks[BLOCK_TYPE_C] >> 10;
+			uint8_t type1_lower = (c >> 13) & 0x07;
+			rtp_content_type_1 = (type1_upper << 3) | type1_lower;
+			rtp_content_type_1_start = (c >> 7) & 0x3F;
+			rtp_content_type_1_len   = (c >> 1) & 0x3F;			
+			if (rtp_content_type_1_start > 63) rtp_content_type_1_start = 0;
+			if (rtp_content_type_1_len > 64 || rtp_content_type_1_start + rtp_content_type_1_len > 64)
+				rtp_content_type_1_len = 64 - rtp_content_type_1_start;			
+			uint8_t type2_upper = c & 0x01;
+	
+			if (blockAvail[BLOCK_TYPE_D]) {
+				uint16_t d = blocks[BLOCK_TYPE_D] >> 10;
+				uint8_t type2_lower = (d >> 11) & 0x1F;
+				rtp_content_type_2 = (type2_upper << 5) | type2_lower;
+				rtp_content_type_2_start = (d >> 5) & 0x3F;
+				rtp_content_type_2_len = d & 0x1F;
+				if (rtp_content_type_2_start > 63) rtp_content_type_2_start = 0;
+				if (rtp_content_type_2_len > 64 || rtp_content_type_2_start + rtp_content_type_2_len > 64)
+					rtp_content_type_2_len = 64 - rtp_content_type_2_start;
+				
+			}
+		} else {
+			return;
 		}
-		if(blockAvail[BLOCK_TYPE_C] && blockAvail[BLOCK_TYPE_D]) {
-			// Hour is somewhat in block C but rest are in D
-			clock_hour = ((blocks[BLOCK_TYPE_C] >> 10) & 1);
-			clock_hour <<= 4;
-			clock_hour |= blocks[BLOCK_TYPE_D] >> 22;
+	
+		rtpLastUpdate = std::chrono::high_resolution_clock::now();
+	}	
 
-			clock_minute = ((blocks[BLOCK_TYPE_D] >> 16) & 0x3f);
+	void Decoder::decodeGroupODA() {
+		uint16_t aid = 0;
 
-			clock_offset_sense = ((blocks[BLOCK_TYPE_D] >> 15) & 1);
+		// First check if we know what this is
+		for(int i = 0; i < oda_aid_count; i++) {
+			if(odas_aid[i].AID == 0) {
+				// If the AID is 0, we don't need to do anything, we have no clue what this is
+				return;
+			}
+			if(odas_aid[i].GroupType == groupType && odas_aid[i].GroupVer == groupVer) {
+				// Found it!
+				aid = odas_aid[i].AID;
+				break;
+			}
+		}
 
-			clock_offset = ((blocks[BLOCK_TYPE_D] >> 10) & 0x1f);
+		if(aid == 0) {
+			// If we don't know what this is, we don't need to do anything
+			return;
+		}
+
+		switch(aid) {
+			case 0x4BD7:
+				// RTP
+				decodeGroupRTP();
+				break;
+			default:
+				// Unknown AID
+				break;
 		}
 	}
 
@@ -565,19 +669,29 @@ namespace rds {
 			break;
 		case 1:
 			// ECC
-			decodeGroup1();
+			if(groupVer == GROUP_VER_A) decodeGroup1A();
+			if(groupVer == GROUP_VER_B) decodeGroupODA();
 			break;
 		case 2:
 			// RT
 			decodeGroup2();
 			break;
+		case 3:
+			if(groupVer == GROUP_VER_A) decodeGroup3A();
+			if(groupVer == GROUP_VER_B) decodeGroupODA();
+			break;
 		case 4:
 			// CT
 			if(groupVer == GROUP_VER_A) decodeGroup4A();
+			if(groupVer == GROUP_VER_B) decodeGroupODA();
 			break;
 		case 10:
 			// PTYN
 			if(groupVer == GROUP_VER_A) decodeGroup10A();
+			if(groupVer == GROUP_VER_B) decodeGroupODA();
+			break;
+		case 14:
+			// TODO: handle EON
 			break;
 		case 15:
 			// LPS
@@ -585,6 +699,7 @@ namespace rds {
 			if(groupVer == GROUP_VER_B) decodeGroup15B();
 			break;
 		default:
+			decodeGroupODA();
 			break;
 		}
 	}
@@ -693,15 +808,18 @@ namespace rds {
 		afLfMfIncoming = 0;
 		afs.fill(0);
 
+		oda_aid_count = 0;
+		odas_aid.fill(ODAAID{});
+
 		blockALastUpdate = std::chrono::high_resolution_clock::time_point();
 		blockBLastUpdate = std::chrono::high_resolution_clock::time_point();
 		group0LastUpdate = std::chrono::high_resolution_clock::time_point();
-		group2LastUpdate = std::chrono::high_resolution_clock::time_point();
-		group10LastUpdate = std::chrono::high_resolution_clock::time_point();
 		group1LastUpdate = std::chrono::high_resolution_clock::time_point();
+		group2LastUpdate = std::chrono::high_resolution_clock::time_point();
+		group10ALastUpdate = std::chrono::high_resolution_clock::time_point();
 		group15ALastUpdate = std::chrono::high_resolution_clock::time_point();
-		group15BLastUpdate = std::chrono::high_resolution_clock::time_point();
 		eccLastUpdate = std::chrono::high_resolution_clock::time_point();
+		rtpLastUpdate = std::chrono::high_resolution_clock::time_point();
 	}
 
 	bool Decoder::blockAValid() {
@@ -719,23 +837,28 @@ namespace rds {
 		return (std::chrono::duration_cast<std::chrono::milliseconds>(now - group0LastUpdate)).count() < RDS_GROUP_0_TIMEOUT_MS;
 	}
 
-	bool Decoder::group2Valid() {
-		auto now = std::chrono::high_resolution_clock::now();
-		return (std::chrono::duration_cast<std::chrono::milliseconds>(now - group2LastUpdate)).count() < RDS_GROUP_2_TIMEOUT_MS;
-	}
-
-	bool Decoder::group10Valid() {
-		auto now = std::chrono::high_resolution_clock::now();
-		return (std::chrono::duration_cast<std::chrono::milliseconds>(now - group10LastUpdate)).count() < RDS_GROUP_10_TIMEOUT_MS;
-	}
-
 	bool Decoder::eccValid() {
 		auto now = std::chrono::high_resolution_clock::now();
 		return (std::chrono::duration_cast<std::chrono::milliseconds>(now - eccLastUpdate)).count() < RDS_ECC_TIMEOUT_MS;
 	}
 
-	bool Decoder::group15Valid() {
+	bool Decoder::group2Valid() {
+		auto now = std::chrono::high_resolution_clock::now();
+		return (std::chrono::duration_cast<std::chrono::milliseconds>(now - group2LastUpdate)).count() < RDS_GROUP_2_TIMEOUT_MS;
+	}
+
+	bool Decoder::group10AValid() {
+		auto now = std::chrono::high_resolution_clock::now();
+		return (std::chrono::duration_cast<std::chrono::milliseconds>(now - group10ALastUpdate)).count() < RDS_GROUP_10_TIMEOUT_MS;
+	}
+
+	bool Decoder::group15AValid() {
 		auto now = std::chrono::high_resolution_clock::now();
 		return (std::chrono::duration_cast<std::chrono::milliseconds>(now - group15ALastUpdate)).count() < RDS_GROUP_15_TIMEOUT_MS;
+	}
+
+	bool Decoder::groupRTPvalid() {
+		auto now = std::chrono::high_resolution_clock::now();
+		return (std::chrono::duration_cast<std::chrono::milliseconds>(now - rtpLastUpdate)).count() < RDS_GROUP_RTP_TIMEOUT_MS;
 	}
 }

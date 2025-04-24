@@ -4,6 +4,7 @@
 #include "rds_demod.h"
 #include <gui/widgets/symbol_diagram.h>
 #include <fstream>
+#include <iomanip>
 #include <rds.h>
 
 namespace demod {
@@ -202,17 +203,19 @@ namespace demod {
                     ImGui::TableSetColumnIndex(0);
                     ImGui::TextUnformatted("AF");
                     ImGui::TableSetColumnIndex(1);
-                
+
                     std::array<uint32_t, 25> arr = rdsDecode.getAFs();
                     uint8_t count = rdsDecode.getAFCount();
-                
-                    // Ensure count is within bounds (not exceeding the size of the array)
+
                     if (count > arr.size()) {
                         count = arr.size();
                     }
-                
+
                     std::stringstream ss;
                     for (int j = 0; j < count; ++j) {
+                        if (arr[j] == 0) {
+                            continue;
+                        }
                         if (j > 0) {
                             ss << " ";
                         }
@@ -226,7 +229,44 @@ namespace demod {
                     ImGui::TextUnformatted("AF");
                     ImGui::TableSetColumnIndex(1);
                     ImGui::TextUnformatted("---");
-                }                
+                }
+
+                if (rdsDecode.odaAIDValid()) {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextUnformatted("ODA AID");
+                    ImGui::TableSetColumnIndex(1);
+
+                    std::array<rds::ODAAID, 8> arr = rdsDecode.getOdaAID();
+                    uint8_t count = rdsDecode.getOdaAIDCount();
+
+                    if (count > arr.size()) {
+                        count = arr.size();
+                    }
+
+                    std::stringstream ss;
+                    for (int j = 0; j < count; ++j) {
+                        if (arr[j].AID == 0) {
+                            continue;
+                        }
+                        if (j > 0) {
+                            ss << " ";
+                        }
+                        ss << static_cast<int>(arr[j].GroupType);
+                        if(arr[j].GroupVer == rds::GROUP_VER_A) ss << "A";
+                        else ss << "B";
+                        ss << ":" << std::uppercase << std::setfill('0') << std::setw(4) << std::hex << arr[j].AID;
+                    }
+
+                    ImGui::Text("%s", ss.str().c_str());
+                }
+                else {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextUnformatted("ODA AID");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::TextUnformatted("---");
+                }
 
                 if (rdsDecode.programTypeNameValid()) {
                     ImGui::TableNextRow();
@@ -402,14 +442,29 @@ namespace demod {
             WFM* _this = (WFM*)ctx;
             if (!_this->_rds) { return; }
 
-            char buf[192];
             std::string ps = _this->rdsDecode.PSNameValid() ? _this->rdsDecode.getPSName() : "-";
             std::string lps = _this->rdsDecode.LPSNameValid() ? _this->rdsDecode.getLPSName() : "-";
             std::string rt = _this->rdsDecode.radioTextValid() ? _this->rdsDecode.getRadioText() : "-";
             std::string rtAB = _this->rdsDecode.radioTextValid() ? _this->rdsDecode.getRadioTextAB() : "-";
 
-            snprintf(buf, sizeof(buf), "Radio Data System Information:\n\tPS: %s\n\tLPS: %s\n\tRT (%s): %s", 
-                ps.c_str(), lps.c_str(), rtAB.c_str(), rt.c_str());
+            bool rtp_running = _this->rdsDecode.getRTPRunning();
+            bool rtp_toggle = _this->rdsDecode.getRTPToggle();
+            std::string rtp1_type = rtp_running ? rds::RTP_TO_STR[_this->rdsDecode.getRTPContentType1()] : "-";
+            std::string rtp1 = rtp_running ? rt.substr(_this->rdsDecode.getRTPContentType1Start(), _this->rdsDecode.getRTPContentType1Len()) : "-";
+            std::string rtp2_type = rtp_running ? rds::RTP_TO_STR[_this->rdsDecode.getRTPContentType2()] : "-";
+            std::string rtp2 = rtp_running ? rt.substr(_this->rdsDecode.getRTPContentType2Start(), _this->rdsDecode.getRTPContentType2Len()) : "-";
+
+            std::ostringstream oss;
+            oss << "Radio Data System Information:\n"
+                << "\tPS: " << ps << "\n"
+                << "\tLPS: " << lps << "\n"
+                << "\tRT (" << rtAB << "): " << rt << "\n"
+                << "\t\tRT+ Toggle: " << (rtp_toggle ? "B" : "A") << "\n"
+                << "\t\tRT+ 1 - " << rtp1_type << ": " << rtp1 << "\n"
+                << "\t\tRT+ 2 - " << rtp2_type << ": " << rtp2;
+
+            std::string output = oss.str();
+            const char* buf = output.c_str();
 
             // Calculate paddings
             ImVec2 min = args.min;
