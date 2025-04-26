@@ -4,6 +4,7 @@
 #include <array>
 #include <chrono>
 #include <mutex>
+#include "charset.h"
 
 #define RDS_BLOCK_A_TIMEOUT_MS  15000.0
 #define RDS_BLOCK_B_TIMEOUT_MS  4000.0
@@ -14,6 +15,7 @@
 #define RDS_GROUP_10_TIMEOUT_MS 7500.0
 #define RDS_GROUP_15_TIMEOUT_MS 8000.0
 #define RDS_GROUP_RTP_TIMEOUT_MS 15000.0
+#define RDS_GROUP_ERT_TIMEOUT_MS 13000.0
 
 namespace rds {
     enum BlockType {
@@ -362,16 +364,23 @@ namespace rds {
         uint8_t getRTPContentType2() { std::lock_guard<std::mutex> lck(rtpMtx); return rtp_content_type_2; }
         uint8_t getRTPContentType2Start() { std::lock_guard<std::mutex> lck(rtpMtx); return rtp_content_type_2_start; }
         uint8_t getRTPContentType2Len() { std::lock_guard<std::mutex> lck(rtpMtx); return rtp_content_type_2_len+1; }
+
+        bool ertValid() { std::lock_guard<std::mutex> lck(ertMtx); return groupERTvalid(); }
+        std::string getERT() {
+            std::lock_guard<std::mutex> lck(ertMtx);
+            if(ert_ucs2) return convert_from_rdscharset(ert.c_str());
+            else return ert;
+        }
         
         bool PSNameValid() { std::lock_guard<std::mutex> lck(group0Mtx); return group0Valid(); }
-        std::string getPSName() { std::lock_guard<std::mutex> lck(group0Mtx); return ps; }
+        std::string getPSName() { std::lock_guard<std::mutex> lck(group0Mtx); return convert_from_rdscharset(ps.c_str()); }
 
         bool radioTextValid() { std::lock_guard<std::mutex> lck(group2Mtx); return group2Valid(); }
-        std::string getRadioText() { std::lock_guard<std::mutex> lck(group2Mtx); return radioText; }
+        std::string getRadioText() { std::lock_guard<std::mutex> lck(group2Mtx); return convert_from_rdscharset(radioText.c_str()); }
         std::string getRadioTextAB() { std::lock_guard<std::mutex> lck(group2Mtx); return lastRTAB ? (std::string)"B" : (std::string)"A"; }
 
         bool programTypeNameValid() { std::lock_guard<std::mutex> lck(group10AMtx); return group10AValid(); }
-        std::string getProgramTypeName() { std::lock_guard<std::mutex> lck(group10AMtx); return programTypeName; }
+        std::string getProgramTypeName() { std::lock_guard<std::mutex> lck(group10AMtx); return convert_from_rdscharset(programTypeName.c_str()); }
 
         void reset();
     private:
@@ -388,8 +397,11 @@ namespace rds {
         void decodeGroup15A();
         void decodeGroup15B();
         void decodeGroupRTP();
+        void decodeGroupERT();
         void decodeGroupODA();
         void decodeGroup();
+
+        void decodeDataERT();
 
         void decodeAlternativeFrequencies();
 
@@ -404,6 +416,8 @@ namespace rds {
         bool group15AValid();
 
         bool groupRTPvalid();
+        bool groupERTvalid();
+
 
         // State machine
         uint32_t shiftReg = 0;
@@ -495,5 +509,11 @@ namespace rds {
         uint8_t rtp_content_type_2 = 0;
         uint8_t rtp_content_type_2_start = 0;
         uint8_t rtp_content_type_2_len = 0;
+        // ERT
+        std::mutex ertMtx;
+        std::chrono::time_point<std::chrono::high_resolution_clock> ertLastUpdate{};  // 1970-01-01
+        std::string ert = "                                                                                                                                ";
+        bool ert_ucs2 = false;
+        bool ert_direction = false;
     };
 }

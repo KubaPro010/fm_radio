@@ -446,6 +446,7 @@ namespace demod {
             std::string lps = _this->rdsDecode.LPSNameValid() ? _this->rdsDecode.getLPSName() : "-";
             std::string rt = _this->rdsDecode.radioTextValid() ? _this->rdsDecode.getRadioText() : "-";
             std::string rtAB = _this->rdsDecode.radioTextValid() ? _this->rdsDecode.getRadioTextAB() : "-";
+            std::string ert = _this->rdsDecode.ertValid() ? _this->rdsDecode.getERT() : "-";
 
             bool rtp_running = _this->rdsDecode.getRTPRunning();
             bool rtp_toggle = _this->rdsDecode.getRTPToggle();
@@ -461,7 +462,8 @@ namespace demod {
                 << "\tRT (" << rtAB << "): " << rt << "\n"
                 << "\t\tRT+ Toggle: " << (rtp_toggle ? "B" : "A") << "\n"
                 << "\t\tRT+ 1 - " << rtp1_type << ": " << rtp1 << "\n"
-                << "\t\tRT+ 2 - " << rtp2_type << ": " << rtp2;
+                << "\t\tRT+ 2 - " << rtp2_type << ": " << rtp2 << "\n"
+                << "\tERT: " << ert;
 
             std::string output = oss.str();
             const char* buf = output.c_str();

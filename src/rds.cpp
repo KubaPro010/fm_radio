@@ -286,9 +286,11 @@ namespace rds {
 				// First message is 224+n with n being the number of AFs, when we receive that we set the afCount and reset the afState in order to be in sync with the encoder
 				afCount = af0 - ALTERNATIVE_FREQUENCY_SPECIAL_CODES_AF_COUNT_BASE;
 				if(afCount > 25) {
+					// If the count is greater than 25, we set it to 25
 					afCount = 25;
 				}
 				if(af1 == ALTERNATIVE_FREQUENCY_SPECIAL_CODES_LFMF_FOLLOWS) {
+					// If the first AF is 250, we set the afLfMfIncoming to 1, because af0 here is the len, so if af1 is lfmf incoming then it is logical that the lfmf is in the next message
 					afLfMfIncoming = 1;
 					return;
 				}
@@ -470,6 +472,13 @@ namespace rds {
 			odas_aid[0].GroupType = groupType_oda;
 			odas_aid[0].GroupVer = groupVer_oda;
 		}
+
+		switch(aid) {
+			case 0x6552:
+				// ERT
+				decodeDataERT();
+				break;
+		}
 	}
 
 	void Decoder::decodeGroup4A() {
@@ -615,12 +624,55 @@ namespace rds {
 					rtp_content_type_2_len = 64 - rtp_content_type_2_start;
 				
 			}
-		} else {
-			return;
-		}
+		} else return;
 	
 		rtpLastUpdate = std::chrono::high_resolution_clock::now();
 	}	
+
+	void Decoder::decodeGroupERT() {
+		// Acquire lock
+		std::lock_guard<std::mutex> lck(ertMtx);
+
+		// Get char segment and write chars in the Radiotext
+		// No AB flag in this group
+		uint8_t segment = (blocks[BLOCK_TYPE_B] >> 10) & 0x1F;
+	
+		// Write char at segment in Radiotext
+		uint8_t ertSegment = segment * 4;
+		if(ert_direction) ertSegment = 128-ertSegment;
+		if (blockAvail[BLOCK_TYPE_C]) {
+			ert[ertSegment + 0] = (blocks[BLOCK_TYPE_C] >> 18) & 0xFF;
+			ert[ertSegment + 1] = (blocks[BLOCK_TYPE_C] >> 10) & 0xFF;
+
+			// Clear ert if \r is present
+			if (ert[ertSegment + 0] == 0x0D) {
+				for (size_t i = ertSegment; i < 128; ++i) ert[i] = ' ';
+			} else if(ert[ertSegment + 1] == 0x0D) {
+				for (size_t i = ertSegment + 1; i < 128; ++i) ert[i] = ' ';
+			}
+		}
+		if (blockAvail[BLOCK_TYPE_D]) {
+			ert[ertSegment + 2] = (blocks[BLOCK_TYPE_D] >> 18) & 0xFF;
+			ert[ertSegment + 3] = (blocks[BLOCK_TYPE_D] >> 10) & 0xFF;
+
+			// Clear ert if \r is present
+			if (ert[ertSegment + 2] == 0x0D) {
+				for (size_t i = ertSegment + 2; i < 128; ++i) ert[i] = ' ';
+			} else if(ert[ertSegment + 3] == 0x0D) {
+				for (size_t i = ertSegment + 3; i < 128; ++i) ert[i] = ' ';
+			}
+		}
+
+		// Update timeout
+		ertLastUpdate = std::chrono::high_resolution_clock::now();
+	}
+
+	void Decoder::decodeDataERT() {
+		std::lock_guard<std::mutex> lck(ertMtx);
+
+		ert_ucs2 = (blocks[BLOCK_TYPE_C] >> 10) & 1;
+		ert_direction = (blocks[BLOCK_TYPE_C] >> 11) & 1;
+	}
 
 	void Decoder::decodeGroupODA() {
 		uint16_t aid = 0;
@@ -646,7 +698,11 @@ namespace rds {
 		switch(aid) {
 			case 0x4BD7:
 				// RTP
-				decodeGroupRTP();
+				if(groupVer == GROUP_VER_A) decodeGroupRTP();
+				break;
+			case 0x6552:
+				// ERT
+				if(groupVer == GROUP_VER_A) decodeGroupERT();
 				break;
 			default:
 				// Unknown AID
@@ -860,5 +916,9 @@ namespace rds {
 	bool Decoder::groupRTPvalid() {
 		auto now = std::chrono::high_resolution_clock::now();
 		return (std::chrono::duration_cast<std::chrono::milliseconds>(now - rtpLastUpdate)).count() < RDS_GROUP_RTP_TIMEOUT_MS;
+	}
+	bool Decoder::groupERTvalid() {
+		auto now = std::chrono::high_resolution_clock::now();
+		return (std::chrono::duration_cast<std::chrono::milliseconds>(now - ertLastUpdate)).count() < RDS_GROUP_ERT_TIMEOUT_MS;
 	}
 }
