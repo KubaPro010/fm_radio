@@ -286,7 +286,7 @@ namespace demod {
                 if (rdsDecode.diValid()) {
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted("Decoder ID");
+                    ImGui::TextUnformatted("PTY Status");
                     ImGui::TableSetColumnIndex(1);
                     ImGui::Text("%s",
                         ((rdsDecode.getDi() & 8) == 8) ? "Dynamic PTY":"Static PTY");
@@ -294,7 +294,7 @@ namespace demod {
                 else {
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted("Decoder ID");
+                    ImGui::TextUnformatted("PTY Status");
                     ImGui::TableSetColumnIndex(1);
                     ImGui::TextUnformatted("---");
                 }
