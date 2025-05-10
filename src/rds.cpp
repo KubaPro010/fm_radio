@@ -867,6 +867,21 @@ namespace rds {
 		oda_aid_count = 0;
 		odas_aid.fill(ODAAID{});
 
+		ert = "                                                                                                                                ";
+		ert_ucs2 = false;
+        ert_direction = false;
+
+		rtp_content_type_1 = 0;
+        rtp_content_type_1_start = 0;
+        rtp_content_type_1_len = 0;
+
+        rtp_content_type_2 = 0;
+        rtp_content_type_2_start = 0;
+        rtp_content_type_2_len = 0;
+
+		rtp_item_running = false;
+        rtp_item_toggle = false;
+
 		blockALastUpdate = std::chrono::high_resolution_clock::time_point();
 		blockBLastUpdate = std::chrono::high_resolution_clock::time_point();
 		group0LastUpdate = std::chrono::high_resolution_clock::time_point();
