@@ -22,7 +22,7 @@ After compiling you'll need to cd into your decoder_modules folder and clone the
 
 ```bash
 cd decoder_modules
-git clone https://github.com/KubaPro010/fm-radio
+git clone https://github.com/KubaPro010/fm_radio
 ```
 
 After that you'll need to edit the CMakeLists.txt (again maybe) in the decoder modules group add the line `option(OPT_BUILD_FM_RADIO "FM Radio" ON)` thne click on one of these `OPT_BUILD` things, specifically `OPT_BUILD_RADIO`, now find a 2nd occurence of that and you'll see something like this:
