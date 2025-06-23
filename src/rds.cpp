@@ -2,9 +2,7 @@
 #include <string.h>
 #include <map>
 #include <algorithm>
-
 #include <utils/flog.h>
-
 
 namespace rds {
 	std::map<uint16_t, BlockType> SYNDROMES = {
@@ -314,6 +312,9 @@ namespace rds {
 				}
 				return;
 			} else {
+				// Ensure we're in bounds
+				if (afState >= afs.size()) return;
+
 				// Decode rest of the AFs
 				if(afLfMfIncoming) {
 					afLfMfIncoming = 0;
@@ -340,11 +341,6 @@ namespace rds {
 						afState++;
 					}
 				}
-			}
-
-			if(afState > 25) {
-				afState = 0;
-				return;
 			}
 		}
 	}
@@ -407,10 +403,11 @@ namespace rds {
 		bool rtAB = (blocks[BLOCK_TYPE_B] >> 14) & 1;
 		uint8_t segment = (blocks[BLOCK_TYPE_B] >> 10) & 0xF;
 
+		// Ensure we're in bounds
+		if(segment > 15) return;
+
 		// Clear text field if the A/B flag changed
-		if (rtAB != lastRTAB) {
-			radioText = "                                                                ";
-		}
+		if (rtAB != lastRTAB) radioText = "                                                                ";
 		lastRTAB = rtAB;
 
 		// Write char at segment in Radiotext
@@ -449,6 +446,8 @@ namespace rds {
 			// If the AID is 0, we don't need to do anything
 			return;
 		}
+
+		if (oda_aid_count >= odas_aid.size()) return;
 
 		for(int i = 0; i < oda_aid_count; i++) {
 			if(odas_aid[i].AID == aid) {
@@ -509,9 +508,7 @@ namespace rds {
 
 		// Check if the text needs to be cleared
 		bool ab = (blocks[BLOCK_TYPE_B] >> 14) & 1;
-		if (ab != lastPTYNAB) {
-			programTypeName = "        ";
-		}
+		if (ab != lastPTYNAB) programTypeName = "        ";
 		lastPTYNAB = ab;
 
 		// Decode segment address
@@ -594,25 +591,24 @@ namespace rds {
 
 	void Decoder::decodeGroupRTP() {
 		std::lock_guard<std::mutex> lck(rtpMtx);
-	
+
 		uint8_t b_lower = (blocks[BLOCK_TYPE_B] >> 10) & 0xFF;
-	
+
 		rtp_item_toggle = (b_lower >> 4) & 0x01;
 		rtp_item_running = (b_lower >> 3) & 0x01;
-	
+
 		uint8_t type1_upper = b_lower & 0x07;
-	
+
 		if (blockAvail[BLOCK_TYPE_C]) {
 			uint16_t c = blocks[BLOCK_TYPE_C] >> 10;
 			uint8_t type1_lower = (c >> 13) & 0x07;
 			rtp_content_type_1 = (type1_upper << 3) | type1_lower;
 			rtp_content_type_1_start = (c >> 7) & 0x3F;
-			rtp_content_type_1_len   = (c >> 1) & 0x3F;			
+			rtp_content_type_1_len   = (c >> 1) & 0x3F;
 			if (rtp_content_type_1_start > 63) rtp_content_type_1_start = 0;
-			if (rtp_content_type_1_len > 64 || rtp_content_type_1_start + rtp_content_type_1_len > 64)
-				rtp_content_type_1_len = 64 - rtp_content_type_1_start;			
+			if (rtp_content_type_1_len > 64 || rtp_content_type_1_start + rtp_content_type_1_len > 64) rtp_content_type_1_len = 64 - rtp_content_type_1_start;
 			uint8_t type2_upper = c & 0x01;
-	
+
 			if (blockAvail[BLOCK_TYPE_D]) {
 				uint16_t d = blocks[BLOCK_TYPE_D] >> 10;
 				uint8_t type2_lower = (d >> 11) & 0x1F;
@@ -620,14 +616,13 @@ namespace rds {
 				rtp_content_type_2_start = (d >> 5) & 0x3F;
 				rtp_content_type_2_len = d & 0x1F;
 				if (rtp_content_type_2_start > 63) rtp_content_type_2_start = 0;
-				if (rtp_content_type_2_len > 64 || rtp_content_type_2_start + rtp_content_type_2_len > 64)
-					rtp_content_type_2_len = 64 - rtp_content_type_2_start;
-				
+				if (rtp_content_type_2_len > 64 || rtp_content_type_2_start + rtp_content_type_2_len > 64) rtp_content_type_2_len = 64 - rtp_content_type_2_start;
+
 			}
-		} else return;
-	
+		}
+
 		rtpLastUpdate = std::chrono::high_resolution_clock::now();
-	}	
+	}
 
 	void Decoder::decodeGroupERT() {
 		// Acquire lock
@@ -636,7 +631,10 @@ namespace rds {
 		// Get char segment and write chars in the Radiotext
 		// No AB flag in this group
 		uint8_t segment = (blocks[BLOCK_TYPE_B] >> 10) & 0x1F;
-	
+
+		// Ensure this is inbounds
+		if (segment > 31) return;
+
 		// Write char at segment in Radiotext
 		uint8_t ertSegment = segment * 4;
 		if(ert_direction) ertSegment = 128-ertSegment;
@@ -679,10 +677,6 @@ namespace rds {
 
 		// First check if we know what this is
 		for(int i = 0; i < oda_aid_count; i++) {
-			if(odas_aid[i].AID == 0) {
-				// If the AID is 0, we don't need to do anything, we have no clue what this is
-				return;
-			}
 			if(odas_aid[i].GroupType == groupType && odas_aid[i].GroupVer == groupVer) {
 				// Found it!
 				aid = odas_aid[i].AID;
@@ -690,10 +684,7 @@ namespace rds {
 			}
 		}
 
-		if(aid == 0) {
-			// If we don't know what this is, we don't need to do anything
-			return;
-		}
+		if(aid == 0) return;
 
 		switch(aid) {
 			case 0x4BD7:
@@ -774,14 +765,10 @@ namespace rds {
 		}
 
 		// Pad with As
-		while (restStr.size() < 3) {
-			restStr += 'A';
-		}
+		while (restStr.size() < 3) restStr += 'A';
 
 		// Reorder chars
-		for (int i = restStr.size() - 1; i >= 0; i--) {
-			callsign += restStr[i];
-		}
+		for (int i = restStr.size() - 1; i >= 0; i--) callsign += restStr[i];
 
 		return callsign;
 	}
@@ -797,34 +784,20 @@ namespace rds {
 		}
 		else if (pi >= 0x9950 && pi <= 0x9EFF) {
 			// 3 letter callsigns
-			if (THREE_LETTER_CALLS.find(pi) != THREE_LETTER_CALLS.end()) {
-				return THREE_LETTER_CALLS[pi];
-			}
-			else {
-				return "Not Assigned";
-			}
+			if (THREE_LETTER_CALLS.find(pi) != THREE_LETTER_CALLS.end()) return THREE_LETTER_CALLS[pi];
+			return "Not Assigned";
 		}
 		else if (pi >= 0x1000 && pi <= 0x994F) {
 			// Normal encoding
-			if ((pi & 0xFF) == 0 || ((pi >> 8) & 0xF) == 0) {
-				return "Not Assigned";
-			}
-			else {
-				return base26ToCall(pi);
-			}
+			if ((pi & 0xFF) == 0 || ((pi >> 8) & 0xF) == 0) return "Not Assigned";
+			return base26ToCall(pi);
 		}
 		else if (pi >= 0xB000 && pi <= 0xEFFF) {
 			uint16_t _pi = ((pi >> 12) << 8) | (pi & 0xFF);
-			if (NAT_LOC_LINKED_STATIONS.find(_pi) != NAT_LOC_LINKED_STATIONS.end()) {
-				return NAT_LOC_LINKED_STATIONS[_pi];
-			}
-			else {
-				return "Not Assigned";
-			}
-		}
-		else {
+			if (NAT_LOC_LINKED_STATIONS.find(_pi) != NAT_LOC_LINKED_STATIONS.end()) return NAT_LOC_LINKED_STATIONS[_pi];
 			return "Not Assigned";
 		}
+		return "Not Assigned";
 	}
 
 	void Decoder::reset() {
